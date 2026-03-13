@@ -1,0 +1,34 @@
+services:
+  db:
+    image: postgres:17
+    container_name: chrono_db
+    environment:
+      POSTGRES_USER: temporal_user
+      POSTGRES_PASSWORD: temporal_pass
+      POSTGRES_DB: temporal_api
+    ports:
+      - "5433:5432"  # Use 5433 to avoid conflict with local PostgreSQL
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U temporal_user -d temporal_api"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    container_name: chrono_api
+    env_file:
+      - .env.docker
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+volumes:
+  postgres_data:
