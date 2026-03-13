@@ -3,7 +3,6 @@ from contextlib import asynccontextmanager
 from app.core.config import get_settings
 from app.api.v1 import api_router
 from app.db import engine, Base
-from demo.router import router as demo_router
 # Import models so Base knows about them
 import app.models  # noqa
 
@@ -27,7 +26,6 @@ app = FastAPI(
 )
 
 app.include_router(api_router)
-app.include_router(demo_router)
 
 
 @app.get("/health")
