@@ -5,12 +5,23 @@ from app.core.config import get_settings
 
 settings = get_settings()
 
+# Build connect_args for SSL if needed (required for Supabase and most cloud DBs)
+connect_args = {}
+database_url = settings.DATABASE_URL
+
+if "supabase" in database_url or "ssl=require" in database_url:
+    connect_args["ssl"] = "require"
+
+# Remove ssl param from URL — handled via connect_args instead
+database_url = database_url.replace("?ssl=require", "").replace("&ssl=require", "")
+
 engine = create_async_engine(
-    settings.DATABASE_URL,
+    database_url,
     echo=settings.DEBUG,
     pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=20,
+    pool_size=5,
+    max_overflow=10,
+    connect_args=connect_args,
 )
 
 AsyncSessionLocal = async_sessionmaker(
