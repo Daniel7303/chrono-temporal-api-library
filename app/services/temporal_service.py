@@ -10,7 +10,40 @@ class TemporalService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
+    async def _get_active_record(
+        self, entity_type: str, entity_id: str
+    ) -> Optional[TemporalRecord]:
+        """Return the currently open (valid_to=NULL) record for an entity, if any."""
+        result = await self.db.execute(
+            select(TemporalRecord).where(
+                and_(
+                    TemporalRecord.entity_type == entity_type,
+                    TemporalRecord.entity_id == entity_id,
+                    TemporalRecord.valid_to.is_(None),
+                )
+            )
+        )
+        return result.scalar_one_or_none()
+
     async def create(self, payload: TemporalRecordCreate) -> TemporalRecord:
+        """
+        Create a new temporal record.
+
+        Raises ValueError if an active (open) record already exists for
+        this entity. Close the existing record first before creating a new one.
+        """
+        # Only block if new record is also open-ended (valid_to=None)
+        if payload.valid_to is None:
+            existing = await self._get_active_record(
+                payload.entity_type, payload.entity_id
+            )
+            if existing:
+                raise ValueError(
+                    f"An active record already exists for "
+                    f"{payload.entity_type}/{payload.entity_id} (id={existing.id}). "
+                    f"Close it first using close_record({existing.id}) before creating a new version."
+                )
+
         record = TemporalRecord(**payload.model_dump())
         self.db.add(record)
         await self.db.flush()

@@ -11,9 +11,17 @@ router = APIRouter(prefix="/temporal", tags=["Temporal Records"])
 
 @router.post("/", response_model=TemporalRecordRead, status_code=201)
 async def create_record(payload: TemporalRecordCreate, db: AsyncSession = Depends(get_db)):
-    """Create a new temporal record."""
+    """
+    Create a new temporal record.
+
+    Returns 409 Conflict if an active record already exists for this entity.
+    Close the existing record first using PATCH /{record_id}/close.
+    """
     svc = TemporalService(db)
-    return await svc.create(payload)
+    try:
+        return await svc.create(payload)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
 
 
 @router.get("/{record_id}", response_model=TemporalRecordRead)
